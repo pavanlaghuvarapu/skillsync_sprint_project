@@ -1,0 +1,4 @@
+server.port=8083
+spring.application.name=mentor-service
+spring.config.import=configserver:http://localhost:888
+#spring.config.import=configserver:http://config-server:8888

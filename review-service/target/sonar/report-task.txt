@@ -1,0 +1,6 @@
+projectKey=review-servcie
+serverUrl=http://localhost:9000
+serverVersion=26.3.0.120487
+dashboardUrl=http://localhost:9000/dashboard?id=review-servcie
+ceTaskId=18081d66-6144-4c6a-8d8f-e92e189c1dc9
+ceTaskUrl=http://localhost:9000/api/ce/task?id=18081d66-6144-4c6a-8d8f-e92e189c1dc9

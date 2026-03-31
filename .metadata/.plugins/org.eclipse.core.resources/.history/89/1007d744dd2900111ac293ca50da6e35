@@ -1,0 +1,92 @@
+package com.skillsync.userservice.service;
+
+import com.skillsync.userservice.dto.UserProfileDto;
+import com.skillsync.userservice.entity.UserProfile;
+import com.skillsync.userservice.repository.UserProfileRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class UserProfileService {
+
+    private final UserProfileRepository repository;
+
+//    @Value("${file.upload-dir}")
+//    private String uploadDir;
+
+    public UserProfile createOrUpdateProfile(String email, UserProfileDto dto) {
+        UserProfile profile = repository.findByEmail(email).orElse(new UserProfile());
+        profile.setEmail(email);
+        if (dto.getFullName() != null) profile.setFullName(dto.getFullName());
+        if (dto.getBio() != null) profile.setBio(dto.getBio());
+        if (dto.getPhoneNumber() != null) profile.setPhoneNumber(dto.getPhoneNumber());
+        if (dto.getLocation() != null) profile.setLocation(dto.getLocation());
+        if (dto.getLinkedinUrl() != null) profile.setLinkedinUrl(dto.getLinkedinUrl());
+        if (dto.getGithubUrl() != null) profile.setGithubUrl(dto.getGithubUrl());
+        return repository.save(profile);
+    }
+
+    public UserProfile getByEmail(String email) {
+        return repository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Profile not found for: " + email));
+    }
+
+    public UserProfile getById(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Profile not found"));
+    }
+
+    public List<UserProfile> getAllUsers() {
+        return repository.findAll();
+    }
+
+//    public String uploadImage(String email, MultipartFile file) throws IOException {
+//        Path uploadPath = Paths.get(uploadDir);
+//        if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
+//        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+//        Files.write(uploadPath.resolve(filename), file.getBytes());
+//        String imageUrl = "http://localhost:8080/api/users/images/" + filename;
+//        UserProfile profile = repository.findByEmail(email).orElse(new UserProfile());
+//        profile.setEmail(email);
+//        profile.setProfileImageUrl(imageUrl);
+//        repository.save(profile);
+//        return imageUrl;
+//    }
+    
+    private final String uploadDir = "/app/uploads";
+
+    public String uploadImage(String email, MultipartFile file) throws IOException {
+
+        Path uploadPath = Paths.get(uploadDir);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+
+        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+
+        Files.write(uploadPath.resolve(filename), file.getBytes());
+
+        String imageUrl = "http://localhost:8080/api/users/images/" + filename;
+
+        UserProfile profile = repository.findByEmail(email).orElse(new UserProfile());
+        profile.setEmail(email);
+        profile.setProfileImageUrl(imageUrl);
+
+        repository.save(profile);
+
+        return imageUrl;
+    }
+
+    public byte[] downloadImage(String filename) throws IOException {
+        return Files.readAllBytes(Paths.get(uploadDir).resolve(filename));
+    }
+}

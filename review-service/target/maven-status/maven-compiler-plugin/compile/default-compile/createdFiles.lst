@@ -1,0 +1,13 @@
+com\skillsync\reviewservice\dto\ReviewRequest.class
+com\skillsync\reviewservice\controller\ReviewController.class
+com\skillsync\reviewservice\entity\Review.class
+com\skillsync\reviewservice\repository\ReviewRepository.class
+com\skillsync\reviewservice\config\SwaggerConfig.class
+com\skillsync\reviewservice\security\JwtAuthFilter.class
+com\skillsync\reviewservice\config\ModelMapperConfig.class
+com\skillsync\reviewservice\service\ReviewService.class
+com\skillsync\reviewservice\exception\GlobalExceptionHandler.class
+com\skillsync\reviewservice\ReviewServiceApplication.class
+com\skillsync\reviewservice\feign\MentorFeignClient.class
+com\skillsync\reviewservice\config\SecurityConfig.class
+com\skillsync\reviewservice\feign\MentorFeignFallback.class

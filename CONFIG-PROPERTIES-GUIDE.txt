@@ -1,0 +1,301 @@
+========================================================
+   SKILLSYNC - CONFIG PROPERTIES GUIDE
+   What goes where - Complete Reference
+========================================================
+
+========================================================
+RULE: WHAT GOES WHERE
+========================================================
+
+LOCAL application.properties (each service):
+  - server.port
+  - spring.application.name
+  - spring.config.import=configserver:http://localhost:8888
+
+GITHUB CONFIG REPO (skillsync-config):
+  - Everything else:
+    - Datasource/DB configs
+    - JWT secret
+    - Redis config
+    - RabbitMQ config
+    - Eureka client URL
+    - Feign/Resilience4j config
+    - Swagger config
+    - file.upload-dir
+
+DO NOT DUPLICATE: Never put DB/Redis/RabbitMQ in local properties!
+
+========================================================
+LOCAL application.properties FOR EACH SERVICE
+========================================================
+
+--- config-server/src/main/resources/application.properties ---
+server.port=8888
+spring.application.name=config-server
+spring.cloud.config.server.git.uri=https://github.com/YOUR_USERNAME/skillsync-config
+spring.cloud.config.server.git.default-label=main
+spring.cloud.config.server.git.username=YOUR_GITHUB_USERNAME
+spring.cloud.config.server.git.password=YOUR_GITHUB_TOKEN
+spring.cloud.config.server.git.clone-on-start=true
+spring.cloud.config.server.git.skip-ssl-validation=true
+management.endpoints.web.exposure.include=*
+
+--- eureka-server/src/main/resources/application.properties ---
+server.port=8761
+spring.application.name=eureka-server
+eureka.instance.hostname=localhost
+eureka.client.register-with-eureka=false
+eureka.client.fetch-registry=false
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+eureka.server.wait-time-in-ms-when-sync-empty=0
+
+--- api-gateway/src/main/resources/application.properties ---
+server.port=8080
+spring.application.name=api-gateway
+spring.config.import=configserver:http://localhost:8888
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+management.endpoints.web.exposure.include=*
+
+--- auth-service/src/main/resources/application.properties ---
+server.port=8081
+spring.application.name=auth-service
+spring.config.import=configserver:http://localhost:8888
+
+--- user-service/src/main/resources/application.properties ---
+server.port=8082
+spring.application.name=user-service
+spring.config.import=configserver:http://localhost:8888
+
+--- mentor-service/src/main/resources/application.properties ---
+server.port=8083
+spring.application.name=mentor-service
+spring.config.import=configserver:http://localhost:8888
+
+--- session-service/src/main/resources/application.properties ---
+server.port=8084
+spring.application.name=session-service
+spring.config.import=configserver:http://localhost:8888
+
+--- notification-service/src/main/resources/application.properties ---
+server.port=8085
+spring.application.name=notification-service
+spring.config.import=configserver:http://localhost:8888
+
+--- review-service/src/main/resources/application.properties ---
+server.port=8086
+spring.application.name=review-service
+spring.config.import=configserver:http://localhost:8888
+
+--- group-service/src/main/resources/application.properties ---
+server.port=8087
+spring.application.name=group-service
+spring.config.import=configserver:http://localhost:8888
+
+========================================================
+GITHUB CONFIG REPO FILES
+(Upload these to your skillsync-config repo)
+========================================================
+
+IMPORTANT: JWT secret must be SAME in all services!
+JWT_SECRET = SkillSync@SecretKey#2024VeryLongAndSecureMustBe256Bits
+
+--- auth-service.properties ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/skillsync_auth
+spring.datasource.username=postgres
+spring.datasource.password=Pavan@123
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+jwt.secret=SkillSync@SecretKey#2024VeryLongAndSecureMustBe256Bits
+jwt.expiration=86400000
+springdoc.swagger-ui.enabled=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+
+--- user-service.properties ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/skillsync_user
+spring.datasource.username=postgres
+spring.datasource.password=Pavan@123
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.servlet.multipart.enabled=true
+spring.servlet.multipart.max-file-size=5MB
+spring.servlet.multipart.max-request-size=5MB
+file.upload-dir=C:/skillsync-images
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+springdoc.swagger-ui.enabled=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+
+--- mentor-service.properties ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/skillsync_mentor
+spring.datasource.username=postgres
+spring.datasource.password=Pavan@123
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+spring.cache.type=redis
+spring.cache.redis.time-to-live=600000
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+feign.circuitbreaker.enabled=true
+resilience4j.circuitbreaker.instances.mentorService.slidingWindowSize=5
+resilience4j.circuitbreaker.instances.mentorService.failureRateThreshold=50
+resilience4j.circuitbreaker.instances.mentorService.waitDurationInOpenState=10s
+springdoc.swagger-ui.enabled=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+
+--- session-service.properties ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/skillsync_session
+spring.datasource.username=postgres
+spring.datasource.password=Pavan@123
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.rabbitmq.host=localhost
+spring.rabbitmq.port=5672
+spring.rabbitmq.username=guest
+spring.rabbitmq.password=guest
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+rabbitmq.exchange=skillsync.exchange
+rabbitmq.queue.notification=notification.queue
+rabbitmq.routing-key.notification=notification.routing.key
+feign.circuitbreaker.enabled=true
+resilience4j.circuitbreaker.instances.mentorService.slidingWindowSize=5
+resilience4j.circuitbreaker.instances.mentorService.failureRateThreshold=50
+resilience4j.circuitbreaker.instances.mentorService.waitDurationInOpenState=10s
+springdoc.swagger-ui.enabled=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+
+--- notification-service.properties ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/skillsync_notification
+spring.datasource.username=postgres
+spring.datasource.password=Pavan@123
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.rabbitmq.host=localhost
+spring.rabbitmq.port=5672
+spring.rabbitmq.username=guest
+spring.rabbitmq.password=guest
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+rabbitmq.exchange=skillsync.exchange
+rabbitmq.queue.notification=notification.queue
+rabbitmq.routing-key.notification=notification.routing.key
+feign.circuitbreaker.enabled=true
+springdoc.swagger-ui.enabled=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+
+--- review-service.properties ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/skillsync_review
+spring.datasource.username=postgres
+spring.datasource.password=Pavan@123
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+feign.circuitbreaker.enabled=true
+resilience4j.circuitbreaker.instances.mentorService.slidingWindowSize=5
+resilience4j.circuitbreaker.instances.mentorService.failureRateThreshold=50
+resilience4j.circuitbreaker.instances.mentorService.waitDurationInOpenState=10s
+springdoc.swagger-ui.enabled=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+
+--- group-service.properties ---
+spring.datasource.url=jdbc:postgresql://localhost:5432/skillsync_group
+spring.datasource.username=postgres
+spring.datasource.password=Pavan@123
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+springdoc.swagger-ui.enabled=true
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+
+--- api-gateway.properties ---
+spring.cloud.gateway.discovery.locator.enabled=true
+spring.cloud.gateway.discovery.locator.lower-case-service-id=true
+spring.cloud.gateway.routes[0].id=auth-service
+spring.cloud.gateway.routes[0].uri=lb://auth-service
+spring.cloud.gateway.routes[0].predicates[0]=Path=/api/auth/**
+spring.cloud.gateway.routes[1].id=user-service
+spring.cloud.gateway.routes[1].uri=lb://user-service
+spring.cloud.gateway.routes[1].predicates[0]=Path=/api/users/**
+spring.cloud.gateway.routes[2].id=mentor-service
+spring.cloud.gateway.routes[2].uri=lb://mentor-service
+spring.cloud.gateway.routes[2].predicates[0]=Path=/api/mentors/**
+spring.cloud.gateway.routes[3].id=session-service
+spring.cloud.gateway.routes[3].uri=lb://session-service
+spring.cloud.gateway.routes[3].predicates[0]=Path=/api/sessions/**
+spring.cloud.gateway.routes[4].id=notification-service
+spring.cloud.gateway.routes[4].uri=lb://notification-service
+spring.cloud.gateway.routes[4].predicates[0]=Path=/api/notifications/**
+spring.cloud.gateway.routes[5].id=review-service
+spring.cloud.gateway.routes[5].uri=lb://review-service
+spring.cloud.gateway.routes[5].predicates[0]=Path=/api/reviews/**
+spring.cloud.gateway.routes[6].id=group-service
+spring.cloud.gateway.routes[6].uri=lb://group-service
+spring.cloud.gateway.routes[6].predicates[0]=Path=/api/groups/**
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+jwt.secret=SkillSync@SecretKey#2024VeryLongAndSecureMustBe256Bits
+management.endpoints.web.exposure.include=*
+
+========================================================
+SWAGGER UI URLS (After starting services)
+========================================================
+
+auth-service:         http://localhost:8081/swagger-ui.html
+user-service:         http://localhost:8082/swagger-ui.html
+mentor-service:       http://localhost:8083/swagger-ui.html
+session-service:      http://localhost:8084/swagger-ui.html
+notification-service: http://localhost:8085/swagger-ui.html
+review-service:       http://localhost:8086/swagger-ui.html
+group-service:        http://localhost:8087/swagger-ui.html
+
+HOW TO USE SWAGGER WITH JWT:
+1. Open any service's swagger-ui.html
+2. Click "Authorize" button (lock icon top right)
+3. Enter: Bearer YOUR_JWT_TOKEN
+4. Click Authorize
+5. Now all APIs in that service work with your token!
+
+GET TOKEN FLOW IN SWAGGER:
+1. Open http://localhost:8081/swagger-ui.html (auth-service)
+2. Find POST /api/auth/login
+3. Click "Try it out"
+4. Enter email and password
+5. Click Execute
+6. Copy "token" from response
+7. Click Authorize -> paste token
+8. Test all other endpoints!
+
+========================================================
+DATABASE REFERENCE
+========================================================
+
+skillsync_auth         -> auth-service
+skillsync_user         -> user-service
+skillsync_mentor       -> mentor-service (includes skills)
+skillsync_session      -> session-service
+skillsync_notification -> notification-service
+skillsync_review       -> review-service
+skillsync_group        -> group-service
+
+========================================================

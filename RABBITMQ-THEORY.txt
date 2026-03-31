@@ -1,0 +1,309 @@
+========================================================
+   SKILLSYNC - RABBITMQ THEORY AND PROJECT EXPLANATION
+========================================================
+
+========================================================
+WHAT IS RABBITMQ?
+========================================================
+
+RabbitMQ is a Message Broker.
+
+A message broker is a middleman between two services.
+Instead of Service A calling Service B directly,
+Service A sends a message to RabbitMQ,
+and RabbitMQ delivers it to Service B.
+
+Think of it like:
+- Email system: You send email (produce), Gmail holds it,
+  recipient picks it up when ready (consume)
+- Post office: Drop letter, post office delivers it
+
+========================================================
+WHY DO WE USE RABBITMQ?
+========================================================
+
+PROBLEM WITHOUT RABBITMQ:
+  Session Service -> directly calls Notification Service
+  If Notification Service is DOWN -> session booking FAILS
+  Tight coupling -> one failure affects another
+
+SOLUTION WITH RABBITMQ:
+  Session Service -> sends message to RabbitMQ -> returns OK
+  Notification Service -> reads message when it comes up
+  DECOUPLED -> failures are isolated
+
+BENEFITS:
+1. Asynchronous - session booking doesn't wait for notification
+2. Reliable - messages stored until consumed, not lost
+3. Decoupled - services don't know about each other
+4. Scalable - multiple consumers can process same queue
+
+========================================================
+KEY RABBITMQ CONCEPTS
+========================================================
+
+1. PRODUCER
+   Service that sends/publishes messages to RabbitMQ
+   In our project: session-service is the PRODUCER
+
+2. CONSUMER
+   Service that reads/consumes messages from RabbitMQ
+   In our project: notification-service is the CONSUMER
+
+3. EXCHANGE
+   Entry point for messages.
+   Producer sends message TO exchange, not directly to queue.
+   Exchange decides where to route the message.
+   In our project: skillsync.exchange (DirectExchange)
+
+4. QUEUE
+   Mailbox that holds messages until consumer reads them.
+   In our project: notification.queue
+
+5. ROUTING KEY
+   Like an address label on the message.
+   Exchange uses routing key to decide which queue gets message.
+   In our project: notification.routing.key
+
+6. BINDING
+   Connection between exchange and queue via routing key.
+   Exchange receives message with routing key
+   -> finds matching binding
+   -> sends to bound queue
+
+7. DIRECT EXCHANGE
+   Routes message to queue whose binding key EXACTLY matches
+   the routing key of the message.
+   We use DirectExchange in this project.
+
+========================================================
+HOW RABBITMQ WORKS IN OUR PROJECT
+========================================================
+
+FLOW:
+
+1. Learner books a session
+   |
+   v
+2. session-service saves session to DB
+   |
+   v
+3. session-service creates NotificationMessage:
+   {
+     recipientEmail: "mentor@gmail.com",
+     subject: "New Session Request",
+     message: "You have a new session request...",
+     notificationType: "SESSION_REQUESTED"
+   }
+   |
+   v
+4. session-service calls:
+   rabbitTemplate.convertAndSend(
+     "skillsync.exchange",         <- exchange name
+     "notification.routing.key",   <- routing key
+     notificationMessage           <- message object
+   )
+   |
+   v
+5. RabbitMQ receives message at skillsync.exchange
+   Exchange looks up binding with key "notification.routing.key"
+   Finds binding to "notification.queue"
+   Puts message in notification.queue
+   |
+   v
+6. notification-service has @RabbitListener running:
+   @RabbitListener(queues = "notification.queue")
+   public void consume(NotificationMessage message) { ... }
+   |
+   v
+7. notification-service receives the message
+   Saves notification to skillsync_notification database
+   |
+   v
+8. Learner/Mentor can now see their notifications via API:
+   GET /api/notifications/my
+
+========================================================
+EVENTS THAT TRIGGER NOTIFICATIONS IN OUR PROJECT
+========================================================
+
+EVENT 1: SESSION_REQUESTED
+  Triggered by: Learner books a session
+  Notification to Mentor: "New session request from X"
+  Notification to Learner: "Your session request was sent"
+
+EVENT 2: SESSION_ACCEPTED
+  Triggered by: Mentor accepts session
+  Notification to Learner: "Your session has been accepted!"
+
+EVENT 3: SESSION_REJECTED
+  Triggered by: Mentor rejects session
+  Notification to Learner: "Your session was rejected. Reason: X"
+
+EVENT 4: SESSION_COMPLETED
+  Triggered by: Session marked as complete
+  Notification to Learner: "Session completed! Please submit a review."
+
+EVENT 5: SESSION_CANCELLED
+  Triggered by: Session cancelled
+  Notification to Mentor: "Session scheduled at X was cancelled."
+
+========================================================
+CODE WALKTHROUGH
+========================================================
+
+PRODUCER (session-service):
+
+Config (RabbitMQConfig.java):
+  @Bean DirectExchange -> skillsync.exchange
+  @Bean Queue -> notification.queue (durable=true)
+  @Bean Binding -> exchange to queue via routing key
+  @Bean MessageConverter -> Jackson2JsonMessageConverter (JSON format)
+
+Publisher (SessionService.java):
+  rabbitTemplate.convertAndSend(
+      exchange,              // skillsync.exchange
+      notificationRoutingKey, // notification.routing.key
+      new NotificationMessage(email, subject, message, type)
+  );
+
+---
+
+CONSUMER (notification-service):
+
+Config (RabbitMQConfig.java):
+  Same exchange, queue, binding, converter setup
+  (Both sides must have same config)
+
+Consumer (NotificationConsumer.java):
+  @RabbitListener(queues = "${rabbitmq.queue.notification}")
+  public void consume(NotificationMessage message) {
+      notificationService.save(...);
+  }
+  Jackson automatically deserializes JSON -> NotificationMessage object
+
+---
+
+MESSAGE FORMAT (NotificationMessage):
+  {
+    "recipientEmail": "pavan@gmail.com",
+    "subject": "Session Accepted!",
+    "message": "Your session has been accepted...",
+    "notificationType": "SESSION_ACCEPTED"
+  }
+
+========================================================
+RABBITMQ DASHBOARD GUIDE
+========================================================
+
+Access: http://localhost:15672
+Login: guest / guest
+
+TABS:
+
+Connections:
+  Shows active connections from our services
+
+Exchanges:
+  Look for: skillsync.exchange
+  Type: direct
+  This is where our messages enter
+
+Queues:
+  Look for: notification.queue
+  Columns:
+    Ready    = messages waiting (should be 0 normally)
+    Unacked  = messages being processed
+    Total    = total messages
+
+  When you book a session:
+    Ready briefly shows 1 or 2
+    Then drops to 0 (consumed by notification-service)
+
+  If notification-service is STOPPED:
+    Ready keeps growing (messages accumulate)
+    When notification-service restarts: all consumed
+
+PUBLISH MESSAGE (for testing):
+  Exchanges -> skillsync.exchange -> Publish message
+  Routing key: notification.routing.key
+  Payload: {"recipientEmail":"test@gmail.com","subject":"Test","message":"Hello","notificationType":"TEST"}
+  notification-service will consume it!
+
+========================================================
+VERIFY RABBITMQ IS WORKING IN OUR PROJECT
+========================================================
+
+STEP 1: Open RabbitMQ dashboard: http://localhost:15672
+
+STEP 2: Go to Queues tab
+  -> notification.queue should be visible
+
+STEP 3: Book a session via Swagger:
+  POST /api/sessions/book (with LEARNER token)
+
+STEP 4: Watch the queue in RabbitMQ dashboard
+  -> Messages Ready briefly goes to 2 (one for each notification)
+  -> Then drops to 0 (consumed by notification-service)
+
+STEP 5: Check notifications via Swagger:
+  GET /api/notifications/my (with your token)
+  -> You should see "Session Requested" notification
+
+STEP 6: Check pgAdmin:
+  skillsync_notification DB -> notifications table
+  -> New rows should be there
+
+========================================================
+CIRCUIT BREAKER WITH FEIGN (BONUS THEORY)
+========================================================
+
+In session-service, when booking a session:
+  Feign calls mentor-service to verify mentor exists.
+  
+  If mentor-service is DOWN:
+    Without Circuit Breaker -> request hangs, timeout, error
+    With Circuit Breaker -> OPEN state, instant fallback response
+    
+  Circuit states:
+    CLOSED  -> normal, requests go through
+    OPEN    -> service down, return fallback immediately
+    HALF-OPEN -> testing if service recovered
+
+Our fallback in MentorFeignFallback.java:
+  public ResponseEntity<Object> getMentorById(Long id) {
+      return ResponseEntity.status(503).body(
+          "Mentor service unavailable. Please try again later."
+      );
+  }
+
+This means even if mentor-service crashes,
+our session-service gives a clean error message
+instead of a messy stack trace!
+
+========================================================
+REDIS CACHE IN MENTOR-SERVICE (BONUS THEORY)
+========================================================
+
+Without Redis:
+  GET /api/mentors -> DB query every time
+  100 users browse mentors = 100 DB queries
+
+With Redis (@Cacheable):
+  First call  -> DB query -> store in Redis (10 min TTL)
+  Next 99 calls -> Redis cache hit -> DB not called!
+
+Our cache names:
+  approvedMentors -> list of all approved mentors
+  mentor          -> individual mentor by ID
+  mentorSearch    -> search results by skill
+  skills          -> all skills list
+
+Cache is cleared (@CacheEvict) when:
+  - Mentor is approved or rejected (status changes)
+  - Mentor rating is updated (after review)
+  - New skill is created
+
+This is why mentor discovery is FAST in our project!
+
+========================================================

@@ -1,0 +1,106 @@
+package com.skillsync.mentorservice.controller;
+
+import com.skillsync.mentorservice.dto.MentorDtos;
+import com.skillsync.mentorservice.entity.Mentor;
+import com.skillsync.mentorservice.entity.Skill;
+import com.skillsync.mentorservice.service.MentorService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/mentors")
+@RequiredArgsConstructor
+@Tag(name = "Mentors", description = "Mentor onboarding, approval, discovery and skills")
+public class MentorController {
+
+    private final MentorService mentorService;
+
+    @Operation(summary = "Apply as mentor (any authenticated user)", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/apply")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Mentor> apply(Authentication auth, @RequestBody MentorDtos.MentorRequest request) {
+        return ResponseEntity.ok(mentorService.applyAsMentor(auth.getName(), auth.getName(), request));
+    }
+
+    @Operation(summary = "Approve mentor - ADMIN only", security = @SecurityRequirement(name = "bearerAuth"))
+    @PutMapping("/approve/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<Mentor> approve(@PathVariable Long id) {
+        return ResponseEntity.ok(mentorService.approveMentor(id));
+    }
+
+    @Operation(summary = "Reject mentor - ADMIN only", security = @SecurityRequirement(name = "bearerAuth"))
+    @PutMapping("/reject/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<Mentor> reject(@PathVariable Long id) {
+        return ResponseEntity.ok(mentorService.rejectMentor(id));
+    }
+
+    @Operation(summary = "Get pending mentor applications - ADMIN only", security = @SecurityRequirement(name = "bearerAuth"))
+    @GetMapping("/pending")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<Mentor>> getPending() {
+        return ResponseEntity.ok(mentorService.getPendingMentors());
+    }
+
+    @Operation(summary = "Get all approved mentors (public, cached in Redis)")
+    @GetMapping
+    public ResponseEntity<List<Mentor>> getAllApproved() {
+        return ResponseEntity.ok(mentorService.getAllApprovedMentors());
+    }
+
+    @Operation(summary = "Get mentor by ID (public)")
+    @GetMapping("/{id}")
+    public ResponseEntity<Mentor> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(mentorService.getMentorById(id));
+    }
+
+    @Operation(summary = "Search mentors by skill (public, cached)")
+    @GetMapping("/search")
+    public ResponseEntity<List<Mentor>> search(@RequestParam String skill) {
+        return ResponseEntity.ok(mentorService.searchBySkill(skill));
+    }
+
+    @Operation(summary = "Filter mentors by rating, experience, price (public)")
+    @GetMapping("/filter")
+    public ResponseEntity<List<Mentor>> filter(
+            @RequestParam(required = false) Double minRating,
+            @RequestParam(required = false) Integer minExp,
+            @RequestParam(required = false) Double maxPrice) {
+        return ResponseEntity.ok(mentorService.filterMentors(minRating, minExp, maxPrice));
+    }
+
+    @Operation(summary = "Update mentor availability - MENTOR only", security = @SecurityRequirement(name = "bearerAuth"))
+    @PutMapping("/availability")
+    @PreAuthorize("hasRole('ROLE_MENTOR')")
+    public ResponseEntity<Mentor> updateAvailability(Authentication auth, @RequestParam String availability) {
+        return ResponseEntity.ok(mentorService.updateAvailability(auth.getName(), availability));
+    }
+
+    @Operation(summary = "Update mentor rating (internal use by review-service)")
+    @PutMapping("/{id}/rating")
+    public ResponseEntity<Void> updateRating(@PathVariable Long id, @RequestParam Double rating) {
+        mentorService.updateMentorRating(id, rating);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Create skill - ADMIN only", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/skills")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public ResponseEntity<Skill> createSkill(@RequestBody MentorDtos.SkillRequest request) {
+        return ResponseEntity.ok(mentorService.createSkill(request));
+    }
+
+    @Operation(summary = "Get all skills (public, cached)")
+    @GetMapping("/skills")
+    public ResponseEntity<List<Skill>> getAllSkills() {
+        return ResponseEntity.ok(mentorService.getAllSkills());
+    }
+}

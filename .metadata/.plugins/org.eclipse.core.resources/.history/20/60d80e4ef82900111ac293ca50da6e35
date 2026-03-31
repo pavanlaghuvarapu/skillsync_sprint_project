@@ -1,0 +1,78 @@
+##server.port=8888
+##spring.application.name=config-server
+###spring.cloud.config.server.git.uri=https://github.com/pavanlaghuvarapu/skillsync_config.git
+###spring.cloud.config.server.git.default-label=main
+###spring.cloud.config.server.git.username=pavanlaghuvarapu
+###spring.cloud.config.server.git.password=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
+###spring.cloud.config.server.git.clone-on-start=true
+###spring.cloud.config.server.git.skip-ssl-validation=true
+###management.endpoints.web.exposure.include=*
+##
+### ── EUREKA (COMMON FOR ALL SERVICES) ─────────────
+##eureka.client.service-url.defaultZone=http://eureka-server:8761/eureka/
+##eureka.instance.prefer-ip-address=true
+##
+### ── JPA (COMMON SETTINGS) ────────────────────────
+##spring.jpa.hibernate.ddl-auto=update
+##spring.jpa.show-sql=true
+##spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+##
+### ── ZIPKIN (GLOBAL TRACING) ──────────────────────
+##management.tracing.sampling.probability=1.0
+##spring.zipkin.base-url=http://zipkin:9411
+##
+### ── ACTUATOR (OPTIONAL BUT USEFUL) ───────────────
+##management.endpoints.web.exposure.include=*
+##management.endpoint.health.show-details=always
+#
+#
+## ── SERVER ─────────────────────────────
+#server.port=8888
+#spring.application.name=config-server
+#
+## ── GIT CONFIG ─────────────────────────
+#spring.cloud.config.server.git.uri=https://github.com/pavanlaghuvarapu/skillsyncdocker_config.git
+#spring.cloud.config.server.git.default-label=main
+#
+## 🔐 Use new token here
+#spring.cloud.config.server.git.username=pavanlaghuvarapu
+#spring.cloud.config.server.git.password=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
+#
+## Clone repo on startup
+#spring.cloud.config.server.git.clone-on-start=true
+#
+## Optional (helps avoid SSL issues)
+#spring.cloud.config.server.git.skip-ssl-validation=true
+#
+## ── ACTUATOR ───────────────────────────
+#management.endpoints.web.exposure.include=*
+#management.endpoint.health.show-details=always
+#
+## ── ZIPKIN (FOR DISTRIBUTED TRACING) ───
+#management.tracing.sampling.probability=1.0
+#spring.zipkin.base-url=http://zipkin:9411
+#
+## ── EUREKA (OPTIONAL) ──────────────────
+## You can enable later if needed
+## eureka.client.service-url.defaultZone=http://eureka-server:8761/eureka/
+
+
+
+
+
+
+
+
+
+
+server.port=8888
+spring.application.name=config-server
+
+spring.cloud.config.server.git.uri=https://github.com/pavanlaghuvarapu/skillsyncdocker_config.git
+spring.cloud.config.server.git.default-label=main
+spring.cloud.config.server.git.username=${GIT_USERNAME}
+spring.cloud.config.server.git.password=${GIT_TOKEN}
+spring.cloud.config.server.git.clone-on-start=true
+
+management.endpoints.web.exposure.include=*
+spring.zipkin.enabled=false

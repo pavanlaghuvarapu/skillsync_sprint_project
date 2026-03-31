@@ -1,0 +1,16 @@
+com\skillsync\authservice\dto\AuthDtos$LoginRequest.class
+com\skillsync\authservice\controller\AuthController.class
+com\skillsync\authservice\dto\AuthDtos$AuthResponse.class
+com\skillsync\authservice\config\ModelMapperConfig.class
+com\skillsync\authservice\service\AuthService.class
+com\skillsync\authservice\AuthServiceApplication.class
+com\skillsync\authservice\dto\AuthDtos$RegisterRequest.class
+com\skillsync\authservice\dto\AuthDtos.class
+com\skillsync\authservice\config\SecurityConfig.class
+com\skillsync\authservice\config\RedisConfig.class
+com\skillsync\authservice\entity\User$Role.class
+com\skillsync\authservice\entity\User.class
+com\skillsync\authservice\config\SwaggerConfig.class
+com\skillsync\authservice\exception\GlobalExceptionHandler.class
+com\skillsync\authservice\repository\UserRepository.class
+com\skillsync\authservice\security\JwtUtil.class

@@ -1,0 +1,6 @@
+projectKey=user-servcie
+serverUrl=http://localhost:9000
+serverVersion=26.3.0.120487
+dashboardUrl=http://localhost:9000/dashboard?id=user-servcie
+ceTaskId=db33a255-77ee-4c29-be75-0f9cebe7e90b
+ceTaskUrl=http://localhost:9000/api/ce/task?id=db33a255-77ee-4c29-be75-0f9cebe7e90b

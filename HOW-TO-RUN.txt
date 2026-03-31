@@ -1,0 +1,422 @@
+========================================================
+   SKILLSYNC - COMPLETE RUN GUIDE
+   How to run locally, with Docker, and test APIs
+========================================================
+
+========================================================
+PART 1 - PREREQUISITES
+========================================================
+
+Install these before starting:
+
+1. Java 17 (https://adoptium.net)
+   Check: java -version
+
+2. Maven 3.9+ (https://maven.apache.org/download.cgi)
+   Check: mvn -version
+
+3. PostgreSQL 15 (https://www.postgresql.org/download)
+   Username: postgres
+   Password: Pavan@123
+   Port: 5432
+
+4. RabbitMQ (https://www.rabbitmq.com/download.html)
+   Enable management plugin:
+   rabbitmq-plugins enable rabbitmq_management
+   Check: http://localhost:15672 (guest/guest)
+
+5. Redis (https://redis.io/download)
+   Windows: https://github.com/microsoftarchive/redis/releases
+   Check: redis-cli ping (should return PONG)
+
+6. Spring Tools Suite (STS) or IntelliJ IDEA
+
+7. Postman (optional - Swagger handles everything)
+
+========================================================
+PART 2 - FIRST TIME SETUP
+========================================================
+
+STEP 1 - Create GitHub Config Repo
+  1. Go to GitHub -> New Repository
+  2. Name: skillsync-config
+  3. Set as PRIVATE
+  4. Upload all files from github-configs/ folder in this ZIP
+  5. Generate Personal Access Token:
+     GitHub -> Settings -> Developer Settings
+     -> Personal Access Tokens -> Classic
+     -> Generate New Token -> check 'repo' -> Copy token
+
+STEP 2 - Update config-server
+  Open: config-server/src/main/resources/application.properties
+  Replace:
+    YOUR_GITHUB_USERNAME -> your GitHub username
+    YOUR_GITHUB_TOKEN    -> your personal access token from step above
+
+STEP 3 - Create Databases in pgAdmin
+  Open pgAdmin -> Query Tool -> Run:
+  (Or run init-db.sql file)
+
+  CREATE DATABASE skillsync_auth;
+  CREATE DATABASE skillsync_user;
+  CREATE DATABASE skillsync_mentor;
+  CREATE DATABASE skillsync_session;
+  CREATE DATABASE skillsync_notification;
+  CREATE DATABASE skillsync_review;
+  CREATE DATABASE skillsync_group;
+
+========================================================
+PART 3A - RUN LOCALLY (STS or IntelliJ)
+========================================================
+
+IMPORTANT: Start services in this EXACT ORDER!
+
+1. Start RabbitMQ
+2. Start Redis
+3. Start PostgreSQL
+
+Then start services (each in separate terminal or STS):
+
+STEP 1: config-server (Port 8888) - WAIT 15 seconds
+  cd config-server
+  mvn spring-boot:run
+
+  Verify: http://localhost:8888/auth-service/default
+  Should show auth-service config from GitHub
+
+STEP 2: eureka-server (Port 8761) - WAIT 15 seconds
+  cd eureka-server
+  mvn spring-boot:run
+
+  Verify: http://localhost:8761
+  Should show Eureka dashboard
+
+STEP 3: api-gateway (Port 8080)
+  cd api-gateway
+  mvn spring-boot:run
+
+STEP 4: auth-service (Port 8081)
+  cd auth-service
+  mvn spring-boot:run
+
+STEP 5: user-service (Port 8082)
+  cd user-service
+  mvn spring-boot:run
+
+STEP 6: mentor-service (Port 8083)
+  cd mentor-service
+  mvn spring-boot:run
+
+STEP 7: session-service (Port 8084)
+  cd session-service
+  mvn spring-boot:run
+
+STEP 8: notification-service (Port 8085)
+  cd notification-service
+  mvn spring-boot:run
+
+STEP 9: review-service (Port 8086)
+  cd review-service
+  mvn spring-boot:run
+
+STEP 10: group-service (Port 8087)
+  cd group-service
+  mvn spring-boot:run
+
+Verify all registered: http://localhost:8761
+You should see 8 services: AUTH, USER, MENTOR, SESSION,
+NOTIFICATION, REVIEW, GROUP, API-GATEWAY
+
+========================================================
+PART 3B - RUN WITH DOCKER
+========================================================
+
+Prerequisites:
+  - Docker Desktop installed and running
+  - First time setup (GitHub config) done
+
+Steps:
+
+1. Open terminal in project root (where docker-compose.yml is)
+
+2. Build and start all containers:
+   docker-compose up --build
+
+   This will:
+   - Pull PostgreSQL, RabbitMQ, Redis images
+   - Build all 10 Spring Boot services
+   - Start everything in correct order
+   - Wait 5-7 minutes first time
+
+3. Verify:
+   - Eureka: http://localhost:8761
+   - RabbitMQ: http://localhost:15672 (guest/guest)
+   - Swagger: http://localhost:8080/swagger-ui.html
+
+4. Stop everything:
+   docker-compose down
+
+5. Stop and remove data:
+   docker-compose down -v
+
+6. Rebuild single service (example):
+   docker-compose up --build auth-service
+
+DOCKER TROUBLESHOOTING:
+  - If config-server fails: GitHub token might be wrong
+  - If DB fails: Check init-db.sql ran properly
+  - If services fail: Check if config-server is healthy first
+  - View logs: docker logs skillsync-auth-service
+
+========================================================
+PART 4 - SWAGGER UI TESTING (RECOMMENDED)
+========================================================
+
+ACCESS SWAGGER UI:
+  http://localhost:8080/swagger-ui.html
+
+  This is the GATEWAY Swagger - shows ALL services!
+  Use the dropdown at top right to switch between services.
+
+HOW TO GET JWT TOKEN IN SWAGGER:
+  1. Open http://localhost:8080/swagger-ui.html
+  2. Select "auth-service" from dropdown
+  3. Find: POST /api/auth/login
+  4. Click "Try it out"
+  5. Enter request body:
+     {
+       "email": "admin@gmail.com",
+       "password": "admin123"
+     }
+  6. Click "Execute"
+  7. Copy the "token" value from response (long string)
+
+HOW TO AUTHORIZE IN SWAGGER:
+  1. Click the "Authorize" button (lock icon, top right)
+  2. In "bearerAuth" field type: Bearer YOUR_TOKEN
+     Example: Bearer eyJhbGciOiJIUzI1NiJ9...
+  3. Click "Authorize" -> "Close"
+  4. Now all APIs work with your token!
+
+NOTE: When you switch to a different service in the dropdown,
+      click Authorize again and paste the same token.
+
+========================================================
+PART 5 - API TESTING FLOW
+========================================================
+
+--- STEP 1: REGISTER USERS ---
+
+Register Admin (in Swagger -> auth-service -> POST /api/auth/register):
+{
+  "fullName": "Admin User",
+  "email": "admin@gmail.com",
+  "password": "admin123",
+  "role": "ROLE_ADMIN"
+}
+
+Register Learner:
+{
+  "fullName": "Pavan Kumar",
+  "email": "pavan@gmail.com",
+  "password": "pavan123",
+  "role": "ROLE_LEARNER"
+}
+
+Register Mentor:
+{
+  "fullName": "Mentor One",
+  "email": "mentor@gmail.com",
+  "password": "mentor123",
+  "role": "ROLE_MENTOR"
+}
+
+--- STEP 2: LOGIN ---
+
+POST /api/auth/login with each user.
+Save each JWT token.
+
+--- STEP 3: CREATE SKILL (ADMIN TOKEN) ---
+
+Switch to mentor-service in Swagger dropdown.
+Authorize with ADMIN token.
+POST /api/mentors/skills:
+{
+  "name": "Spring Boot",
+  "category": "Backend",
+  "description": "Spring Boot framework"
+}
+Note the skill ID (usually 1).
+
+--- STEP 4: APPLY AS MENTOR (MENTOR TOKEN) ---
+
+Authorize with MENTOR token.
+POST /api/mentors/apply:
+{
+  "bio": "5 years Java and Spring Boot experience",
+  "experienceYears": 5,
+  "pricePerHour": 500.0,
+  "availability": "Weekends 10am-5pm",
+  "skillIds": [1]
+}
+Status will be PENDING.
+
+--- STEP 5: APPROVE MENTOR (ADMIN TOKEN) ---
+
+Authorize with ADMIN token.
+PUT /api/mentors/approve/1
+
+--- STEP 6: USER PROFILE (LEARNER TOKEN) ---
+
+Switch to user-service in Swagger dropdown.
+Authorize with LEARNER token.
+POST /api/users/profile:
+{
+  "fullName": "Pavan Kumar",
+  "bio": "Eager to learn Spring Boot microservices",
+  "phoneNumber": "9999999999",
+  "location": "Hyderabad"
+}
+
+--- STEP 7: BOOK SESSION (LEARNER TOKEN) ---
+
+Switch to session-service in Swagger dropdown.
+Authorize with LEARNER token.
+POST /api/sessions/book:
+{
+  "mentorId": 1,
+  "mentorEmail": "mentor@gmail.com",
+  "topic": "Spring Boot Microservices",
+  "description": "Help with Feign and Circuit Breaker",
+  "scheduledAt": "2026-05-01T10:00:00",
+  "durationMinutes": 60
+}
+
+After this: notifications are sent via RabbitMQ automatically!
+
+--- STEP 8: ACCEPT SESSION (MENTOR TOKEN) ---
+
+Authorize with MENTOR token.
+PUT /api/sessions/1/accept
+
+--- STEP 9: CHECK NOTIFICATIONS (LEARNER TOKEN) ---
+
+Switch to notification-service in Swagger dropdown.
+Authorize with LEARNER token.
+GET /api/notifications/my
+You should see "Session Accepted!" notification.
+
+--- STEP 10: COMPLETE SESSION (MENTOR TOKEN) ---
+
+Authorize with MENTOR token.
+PUT /api/sessions/1/complete
+
+--- STEP 11: SUBMIT REVIEW (LEARNER TOKEN) ---
+
+Switch to review-service in Swagger dropdown.
+Authorize with LEARNER token.
+POST /api/reviews:
+{
+  "mentorId": 1,
+  "sessionId": 1,
+  "rating": 5,
+  "reviewText": "Excellent session! Very clear explanations."
+}
+Mentor rating auto-updated via Feign!
+
+--- STEP 12: CREATE GROUP (LEARNER TOKEN) ---
+
+Switch to group-service in Swagger dropdown.
+Authorize with LEARNER token.
+POST /api/groups:
+{
+  "name": "Spring Boot Study Group",
+  "description": "Learn Spring Boot microservices together",
+  "topic": "Spring Boot",
+  "maxMembers": 30
+}
+
+JOIN GROUP (MENTOR TOKEN):
+Authorize with MENTOR token.
+POST /api/groups/1/join
+
+SEND MESSAGE:
+POST /api/groups/1/messages:
+{
+  "message": "Hello everyone! Let us start today's session."
+}
+
+========================================================
+PART 6 - DIRECT SERVICE SWAGGER URLS
+========================================================
+
+If you want to test each service individually:
+
+Auth Service:         http://localhost:8081/swagger-ui.html
+User Service:         http://localhost:8082/swagger-ui.html
+Mentor Service:       http://localhost:8083/swagger-ui.html
+Session Service:      http://localhost:8084/swagger-ui.html
+Notification Service: http://localhost:8085/swagger-ui.html
+Review Service:       http://localhost:8086/swagger-ui.html
+Group Service:        http://localhost:8087/swagger-ui.html
+
+Gateway (ALL services): http://localhost:8080/swagger-ui.html
+
+========================================================
+PART 7 - FAILURE TEST CASES
+========================================================
+
+TEST 1 - No Token (expect 401):
+  Try any protected API without clicking Authorize
+  Expected: 401 Unauthorized
+
+TEST 2 - Wrong Role (expect 403):
+  Try POST /api/sessions/book with MENTOR token
+  Expected: 403 Forbidden (LEARNER only)
+
+TEST 3 - Try approve mentor with LEARNER token:
+  PUT /api/mentors/approve/1 with LEARNER token
+  Expected: 403 Forbidden (ADMIN only)
+
+TEST 4 - Invalid token:
+  Authorize with: Bearer invalidtoken123
+  Expected: 401 Unauthorized
+
+========================================================
+PART 8 - VERIFY SUPPORTING SERVICES
+========================================================
+
+Eureka Dashboard:
+  http://localhost:8761
+  All 8 services should show UP
+
+RabbitMQ Dashboard:
+  http://localhost:15672
+  Username: guest, Password: guest
+  Queues tab -> notification.queue should exist
+  After booking session -> Messages Ready = 0 (consumed)
+
+Redis:
+  After login, token stored in Redis:
+  key: token:pavan@gmail.com
+
+pgAdmin:
+  Each DB has auto-created tables after first run.
+
+========================================================
+PORT REFERENCE
+========================================================
+
+api-gateway           8080  <- ALL requests go here
+auth-service          8081
+user-service          8082
+mentor-service        8083
+session-service       8084
+notification-service  8085
+review-service        8086
+group-service         8087
+eureka-server         8761
+config-server         8888
+RabbitMQ Management  15672
+Redis                 6379
+PostgreSQL            5432

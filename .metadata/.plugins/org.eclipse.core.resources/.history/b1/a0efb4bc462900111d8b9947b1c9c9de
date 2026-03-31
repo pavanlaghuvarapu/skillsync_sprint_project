@@ -1,0 +1,4 @@
+server.port=8084
+spring.application.name=session-service
+#spring.config.import=configserver:http://localhost:8888
+spring.config.import=configserver:http://config-server:8888

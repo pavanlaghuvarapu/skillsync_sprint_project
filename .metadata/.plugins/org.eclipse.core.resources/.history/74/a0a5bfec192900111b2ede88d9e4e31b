@@ -1,0 +1,24 @@
+server.port=8080
+spring.application.name=api-gateway
+spring.config.import=configserver:http://localhost:8888
+eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
+management.endpoints.web.exposure.include=*
+
+# Swagger UI config
+springdoc.swagger-ui.enabled=true
+springdoc.swagger-ui.path=/swagger-ui.html
+springdoc.swagger-ui.config-url=/v3/api-docs/swagger-config
+springdoc.swagger-ui.urls[0].url=/auth-service/v3/api-docs
+springdoc.swagger-ui.urls[0].name=auth-service
+springdoc.swagger-ui.urls[1].url=/user-service/v3/api-docs
+springdoc.swagger-ui.urls[1].name=user-service
+springdoc.swagger-ui.urls[2].url=/mentor-service/v3/api-docs
+springdoc.swagger-ui.urls[2].name=mentor-service
+springdoc.swagger-ui.urls[3].url=/session-service/v3/api-docs
+springdoc.swagger-ui.urls[3].name=session-service
+springdoc.swagger-ui.urls[4].url=/review-service/v3/api-docs
+springdoc.swagger-ui.urls[4].name=review-service
+springdoc.swagger-ui.urls[5].url=/notification-service/v3/api-docs
+springdoc.swagger-ui.urls[5].name=notification-service
+springdoc.swagger-ui.urls[6].url=/group-service/v3/api-docs
+springdoc.swagger-ui.urls[6].name=group-service

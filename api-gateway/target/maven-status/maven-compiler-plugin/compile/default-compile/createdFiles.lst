@@ -1,0 +1,6 @@
+com\skillsync\apigateway\ApiGatewayApplication.class
+com\skillsync\apigateway\config\SecurityConfig.class
+com\skillsync\apigateway\config\SwaggerConfig.class
+com\skillsync\apigateway\filter\JwtUtil.class
+com\skillsync\apigateway\config\CorsConfig.class
+com\skillsync\apigateway\filter\JwtAuthFilter.class

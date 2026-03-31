@@ -1,0 +1,6 @@
+projectKey=notification-servcie
+serverUrl=http://localhost:9000
+serverVersion=26.3.0.120487
+dashboardUrl=http://localhost:9000/dashboard?id=notification-servcie
+ceTaskId=30cd21d3-58b8-41b6-9a0a-37a12e38deb2
+ceTaskUrl=http://localhost:9000/api/ce/task?id=30cd21d3-58b8-41b6-9a0a-37a12e38deb2

@@ -1,0 +1,15 @@
+com\skillsync\notificationservice\feign\UserFeignFallback.class
+com\skillsync\notificationservice\config\NotificationMessage.class
+com\skillsync\notificationservice\config\SecurityConfig.class
+com\skillsync\notificationservice\controller\NotificationController.class
+com\skillsync\notificationservice\service\NotificationService.class
+com\skillsync\notificationservice\security\JwtAuthFilter.class
+com\skillsync\notificationservice\config\ModelMapperConfig.class
+com\skillsync\notificationservice\repository\NotificationRepository.class
+com\skillsync\notificationservice\config\SwaggerConfig.class
+com\skillsync\notificationservice\entity\Notification.class
+com\skillsync\notificationservice\exception\GlobalExceptionHandler.class
+com\skillsync\notificationservice\feign\UserFeignClient.class
+com\skillsync\notificationservice\consumer\NotificationConsumer.class
+com\skillsync\notificationservice\NotificationServiceApplication.class
+com\skillsync\notificationservice\config\RabbitMQConfig.class

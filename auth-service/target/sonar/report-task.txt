@@ -1,0 +1,6 @@
+projectKey=auth-service
+serverUrl=http://localhost:9000
+serverVersion=26.3.0.120487
+dashboardUrl=http://localhost:9000/dashboard?id=auth-service
+ceTaskId=cea20dbf-ffe2-4dc5-9b0e-3548b1593b32
+ceTaskUrl=http://localhost:9000/api/ce/task?id=cea20dbf-ffe2-4dc5-9b0e-3548b1593b32

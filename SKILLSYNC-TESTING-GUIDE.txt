@@ -1,0 +1,671 @@
+========================================================
+   SKILLSYNC - COMPLETE API TESTING & EXECUTION GUIDE
+   Capgemini Backend Training Evaluation
+========================================================
+
+========================================================
+ARCHITECTURE OVERVIEW
+========================================================
+
+Infrastructure Services:
+  config-server        -> 8888 (GitHub-backed centralized config)
+  eureka-server        -> 8761 (Service discovery)
+  api-gateway          -> 8080 (JWT validation + routing)
+
+Business Services:
+  auth-service         -> 8081 (JWT login/register/logout + Redis)
+  user-service         -> 8082 (profiles + image upload)
+  mentor-service       -> 8083 (mentor management + Redis cache)
+  session-service      -> 8084 (booking + RabbitMQ + Feign + Circuit Breaker)
+  notification-service -> 8085 (RabbitMQ consumer + Feign)
+  review-service       -> 8086 (reviews + Feign + Circuit Breaker)
+  group-service        -> 8087 (peer learning groups)
+
+Supporting:
+  PostgreSQL  -> 5432 (separate DB per service)
+  RabbitMQ    -> 5672 (async notifications)
+  Redis       -> 6379 (JWT + mentor cache)
+
+========================================================
+CONCEPTS DEMONSTRATED IN THIS PROJECT
+========================================================
+
+1. Config Server     -> GitHub-backed, all services load config from it
+2. Eureka Server     -> All services register, Feign uses service names
+3. API Gateway       -> JWT validation filter, routes all requests
+4. JWT Auth          -> Generated in auth-service, validated in every service
+5. Role-Based Access -> ROLE_ADMIN, ROLE_MENTOR, ROLE_LEARNER enforced
+6. Feign Client      -> session->mentor, session->user, review->mentor, notification->user
+7. Circuit Breaker   -> Resilience4j on session->mentor, review->mentor
+8. Redis Cache       -> Mentor list, mentor search, skills (auth token store)
+9. RabbitMQ          -> Session events published, notification-service consumes
+10. Docker           -> Dockerfile per service, docker-compose.yml
+
+========================================================
+STEP 1 - PREREQUISITES
+========================================================
+
+Local Run:
+  - Java 17
+  - Maven 3.9+
+  - PostgreSQL running (user: postgres, password: Pavan@123)
+  - RabbitMQ running on port 5672
+  - Redis running on port 6379
+  - Postman for API testing
+
+Docker Run:
+  - Docker Desktop installed and running
+  - That is all
+
+========================================================
+STEP 2 - GITHUB CONFIG SETUP (DO THIS FIRST)
+========================================================
+
+1. Go to GitHub -> Create new PRIVATE repo named: skillsync-config
+
+2. Upload all files from the github-configs/ folder in this ZIP:
+   - auth-service.properties
+   - user-service.properties
+   - mentor-service.properties
+   - session-service.properties
+   - notification-service.properties
+   - review-service.properties
+   - group-service.properties
+
+3. Generate GitHub Token:
+   GitHub -> Settings -> Developer Settings
+   -> Personal Access Tokens -> Tokens (classic)
+   -> Generate New Token -> check repo -> Generate
+   -> COPY THE TOKEN (shown only once!)
+
+4. Open config-server/src/main/resources/application.properties
+   Replace:
+   YOUR_GITHUB_USERNAME  -> your GitHub username
+   YOUR_GITHUB_TOKEN     -> your token from step 3
+
+========================================================
+STEP 3 - CREATE DATABASES
+========================================================
+
+Open pgAdmin -> Query Tool -> Run:
+
+CREATE DATABASE skillsync_auth;
+CREATE DATABASE skillsync_user;
+CREATE DATABASE skillsync_mentor;
+CREATE DATABASE skillsync_session;
+CREATE DATABASE skillsync_notification;
+CREATE DATABASE skillsync_review;
+CREATE DATABASE skillsync_group;
+
+(Or run init-db.sql in pgAdmin)
+
+========================================================
+STEP 4A - RUN LOCALLY (Start in this EXACT order)
+========================================================
+
+Open separate terminal for each:
+
+1.  cd config-server       && mvn spring-boot:run  (wait 10 sec)
+2.  cd eureka-server       && mvn spring-boot:run  (wait 10 sec)
+3.  cd api-gateway         && mvn spring-boot:run
+4.  cd auth-service        && mvn spring-boot:run
+5.  cd user-service        && mvn spring-boot:run
+6.  cd mentor-service      && mvn spring-boot:run
+7.  cd session-service     && mvn spring-boot:run
+8.  cd notification-service && mvn spring-boot:run
+9.  cd review-service      && mvn spring-boot:run
+10. cd group-service       && mvn spring-boot:run
+
+Check Eureka: http://localhost:8761
+All 8 services should appear.
+
+========================================================
+STEP 4B - RUN WITH DOCKER
+========================================================
+
+docker-compose up --build
+
+Wait 3-5 minutes. All services start automatically.
+
+Check: http://localhost:8761  (Eureka)
+Check: http://localhost:15672 (RabbitMQ - guest/guest)
+
+========================================================
+STEP 5 - JWT FLOW EXPLANATION
+========================================================
+
+Gateway receives request
+    |
+    v
+JwtAuthFilter checks Authorization header
+    |
+    |-- No token? -> 401 UNAUTHORIZED
+    |
+    |-- Invalid token? -> 401 UNAUTHORIZED
+    |
+    v
+Token valid -> extract email + role
+    |
+    v
+Forward to downstream service with headers:
+  X-Auth-User-Email: pavan@gmail.com
+  X-Auth-User-Role: ROLE_LEARNER
+    |
+    v
+Downstream JwtAuthFilter reads headers
+    |
+    v
+Sets SecurityContext with email + role
+    |
+    v
+@PreAuthorize checks role -> allow or deny
+
+========================================================
+STEP 6 - API TESTING (ALL VIA GATEWAY PORT 8080)
+========================================================
+
+------------------------------------------
+A. REGISTER USERS
+------------------------------------------
+
+Register Admin:
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Admin User",
+  "email": "admin@gmail.com",
+  "password": "admin123",
+  "role": "ROLE_ADMIN"
+}
+
+Expected: 200 OK with JWT token
+
+---
+
+Register Learner:
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Pavan Kumar",
+  "email": "pavan@gmail.com",
+  "password": "pavan123",
+  "role": "ROLE_LEARNER"
+}
+
+---
+
+Register Mentor:
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "fullName": "Mentor One",
+  "email": "mentor@gmail.com",
+  "password": "mentor123",
+  "role": "ROLE_MENTOR"
+}
+
+------------------------------------------
+B. LOGIN AND GET JWT TOKEN
+------------------------------------------
+
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "pavan@gmail.com",
+  "password": "pavan123"
+}
+
+Expected Response:
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "email": "pavan@gmail.com",
+  "role": "ROLE_LEARNER",
+  "fullName": "Pavan Kumar",
+  "userId": 1
+}
+
+IMPORTANT: Copy the "token" value. Use it in all protected APIs.
+
+------------------------------------------
+C. HOW TO USE TOKEN IN POSTMAN
+------------------------------------------
+
+In Postman:
+1. Click on request
+2. Go to "Authorization" tab
+3. Select "Bearer Token"
+4. Paste your token in the Token field
+
+OR add header manually:
+Key:   Authorization
+Value: Bearer eyJhbGciOiJIUzI1NiJ9...
+
+------------------------------------------
+D. LOGOUT
+------------------------------------------
+
+POST http://localhost:8080/api/auth/logout?token=YOUR_JWT_TOKEN
+
+Expected: "Logged out successfully"
+Effect: Token blacklisted in Redis
+
+------------------------------------------
+E. USER PROFILE
+------------------------------------------
+
+Create/Update Profile (need token):
+PUT http://localhost:8080/api/users/profile
+Authorization: Bearer TOKEN
+
+{
+  "fullName": "Pavan Kumar",
+  "bio": "Java Developer learning microservices",
+  "phoneNumber": "9999999999",
+  "location": "Hyderabad"
+}
+
+Get My Profile:
+GET http://localhost:8080/api/users/profile/me
+Authorization: Bearer TOKEN
+
+Upload Profile Image:
+POST http://localhost:8080/api/users/profile/upload-image
+Authorization: Bearer TOKEN
+Body: form-data -> key: file (type: File) -> select image
+
+View Image (public, no token):
+GET http://localhost:8082/api/users/images/{filename}
+
+------------------------------------------
+F. MENTOR FLOW
+------------------------------------------
+
+STEP 1 - Create Skill (ADMIN TOKEN required):
+POST http://localhost:8080/api/mentors/skills
+Authorization: Bearer ADMIN_TOKEN
+
+{
+  "name": "Spring Boot",
+  "category": "Backend",
+  "description": "Spring Boot framework"
+}
+
+Expected: 200 OK with skill object, id: 1
+
+---
+
+STEP 2 - Apply as Mentor (any authenticated user):
+POST http://localhost:8080/api/mentors/apply
+Authorization: Bearer MENTOR_TOKEN
+
+{
+  "bio": "5 years Java expert",
+  "experienceYears": 5,
+  "pricePerHour": 500.0,
+  "availability": "Weekends",
+  "skillIds": [1]
+}
+
+Expected: 200 OK, status: PENDING
+
+---
+
+STEP 3 - Get Pending Mentors (ADMIN TOKEN required):
+GET http://localhost:8080/api/mentors/pending
+Authorization: Bearer ADMIN_TOKEN
+
+Expected: list of pending mentors
+
+---
+
+STEP 4 - Approve Mentor (ADMIN TOKEN required):
+PUT http://localhost:8080/api/mentors/approve/1
+Authorization: Bearer ADMIN_TOKEN
+
+Expected: 200 OK, status: APPROVED
+
+---
+
+Search Mentors (no token needed - public):
+GET http://localhost:8080/api/mentors/search?skill=Spring
+
+Filter Mentors:
+GET http://localhost:8080/api/mentors/filter?minRating=0&maxPrice=1000
+
+Mentor Updates Availability (MENTOR TOKEN):
+PUT http://localhost:8080/api/mentors/availability?availability=Weekdays
+Authorization: Bearer MENTOR_TOKEN
+
+------------------------------------------
+G. SESSION BOOKING FLOW
+------------------------------------------
+
+STEP 1 - Book Session (LEARNER TOKEN required):
+POST http://localhost:8080/api/sessions/book
+Authorization: Bearer LEARNER_TOKEN
+
+{
+  "mentorId": 1,
+  "mentorEmail": "mentor@gmail.com",
+  "topic": "Spring Boot Microservices",
+  "description": "Need help with Feign and Circuit Breaker",
+  "scheduledAt": "2026-04-10T10:00:00",
+  "durationMinutes": 60
+}
+
+Expected: 200 OK with session
+Note: Feign verifies mentor exists first!
+Note: Notifications sent to both via RabbitMQ!
+
+---
+
+STEP 2 - Accept Session (MENTOR TOKEN required):
+PUT http://localhost:8080/api/sessions/1/accept
+Authorization: Bearer MENTOR_TOKEN
+
+Expected: 200 OK, status: ACCEPTED
+Note: Notification sent to learner!
+
+---
+
+Reject Session (MENTOR TOKEN):
+PUT http://localhost:8080/api/sessions/1/reject?reason=Not available
+Authorization: Bearer MENTOR_TOKEN
+
+Complete Session (MENTOR TOKEN):
+PUT http://localhost:8080/api/sessions/1/complete
+Authorization: Bearer MENTOR_TOKEN
+
+Cancel Session (any authenticated):
+PUT http://localhost:8080/api/sessions/1/cancel
+Authorization: Bearer TOKEN
+
+Get My Sessions (LEARNER TOKEN):
+GET http://localhost:8080/api/sessions/my
+Authorization: Bearer LEARNER_TOKEN
+
+Get All Sessions (ADMIN TOKEN):
+GET http://localhost:8080/api/sessions
+Authorization: Bearer ADMIN_TOKEN
+
+------------------------------------------
+H. NOTIFICATIONS (Auto-created by RabbitMQ)
+------------------------------------------
+
+Get My Notifications:
+GET http://localhost:8080/api/notifications/my
+Authorization: Bearer TOKEN
+
+Get Unread:
+GET http://localhost:8080/api/notifications/my/unread
+Authorization: Bearer TOKEN
+
+Mark as Read:
+PUT http://localhost:8080/api/notifications/1/read
+Authorization: Bearer TOKEN
+
+Mark All Read:
+PUT http://localhost:8080/api/notifications/read-all
+Authorization: Bearer TOKEN
+
+------------------------------------------
+I. SUBMIT REVIEW
+------------------------------------------
+
+STEP 1 - Submit Review (LEARNER TOKEN required):
+POST http://localhost:8080/api/reviews
+Authorization: Bearer LEARNER_TOKEN
+
+{
+  "mentorId": 1,
+  "sessionId": 1,
+  "rating": 5,
+  "reviewText": "Excellent mentor! Clear explanations."
+}
+
+Expected: 200 OK
+Note: Feign auto-updates mentor average rating!
+
+---
+
+Get Mentor Reviews (public):
+GET http://localhost:8080/api/reviews/mentor/1
+
+Get Average Rating (public):
+GET http://localhost:8080/api/reviews/mentor/1/average
+
+------------------------------------------
+J. GROUP MANAGEMENT
+------------------------------------------
+
+Create Group (any authenticated):
+POST http://localhost:8080/api/groups
+Authorization: Bearer TOKEN
+
+{
+  "name": "Spring Boot Beginners",
+  "description": "Learn Spring Boot together",
+  "topic": "Spring Boot",
+  "maxMembers": 30
+}
+
+Get All Groups (public):
+GET http://localhost:8080/api/groups
+
+Join Group (authenticated):
+POST http://localhost:8080/api/groups/1/join
+Authorization: Bearer TOKEN
+
+Leave Group (authenticated):
+POST http://localhost:8080/api/groups/1/leave
+Authorization: Bearer TOKEN
+
+My Groups:
+GET http://localhost:8080/api/groups/my
+Authorization: Bearer TOKEN
+
+Search by Topic (public):
+GET http://localhost:8080/api/groups/search?topic=Spring
+
+Send Message (authenticated, must be member):
+POST http://localhost:8080/api/groups/1/messages
+Authorization: Bearer TOKEN
+
+{
+  "message": "Hello team! Let us start today's session."
+}
+
+Get Messages:
+GET http://localhost:8080/api/groups/1/messages
+Authorization: Bearer TOKEN
+
+Delete Group (ADMIN only):
+DELETE http://localhost:8080/api/groups/1
+Authorization: Bearer ADMIN_TOKEN
+
+========================================================
+STEP 7 - FAILURE TEST CASES
+========================================================
+
+TEST 1 - No Token (expect 401):
+GET http://localhost:8080/api/sessions/my
+(no Authorization header)
+Expected: 401 UNAUTHORIZED
+
+---
+
+TEST 2 - Invalid Token (expect 401):
+GET http://localhost:8080/api/sessions/my
+Authorization: Bearer invalid.token.here
+Expected: 401 UNAUTHORIZED
+
+---
+
+TEST 3 - Wrong Role (expect 403):
+Try approve mentor with LEARNER token:
+PUT http://localhost:8080/api/mentors/approve/1
+Authorization: Bearer LEARNER_TOKEN
+Expected: 403 FORBIDDEN
+
+---
+
+TEST 4 - Book session with MENTOR token (expect 403):
+POST http://localhost:8080/api/sessions/book
+Authorization: Bearer MENTOR_TOKEN
+Expected: 403 FORBIDDEN (LEARNER only)
+
+---
+
+TEST 5 - Submit review with MENTOR token (expect 403):
+POST http://localhost:8080/api/reviews
+Authorization: Bearer MENTOR_TOKEN
+Expected: 403 FORBIDDEN (LEARNER only)
+
+========================================================
+STEP 8 - REDIS CACHE TEST
+========================================================
+
+TEST 1 - Mentor list caching:
+1. Call GET /api/mentors  (first call - hits DB, slow)
+2. Call GET /api/mentors  (second call - hits Redis cache, fast)
+3. Approve a mentor
+4. Call GET /api/mentors  (cache cleared by @CacheEvict, hits DB again)
+
+TEST 2 - Auth Redis token store:
+1. Login -> token stored in Redis with key "token:email"
+2. Logout -> token blacklisted in Redis with key "blacklist:token"
+3. Try to use logged out token -> should be rejected
+
+========================================================
+STEP 9 - CIRCUIT BREAKER TEST
+========================================================
+
+TEST 1 - Session service when mentor-service is DOWN:
+1. Stop mentor-service
+2. Try booking a session
+3. Expected: Graceful error - "Mentor service is currently unavailable"
+   NOT: NullPointerException or stack trace
+
+TEST 2 - Review service when mentor-service is DOWN:
+1. Stop mentor-service
+2. Submit a review
+3. Expected: Review saved, but rating update skipped gracefully
+   Log shows: "Mentor service DOWN! Rating update skipped"
+
+========================================================
+STEP 10 - RABBITMQ EVENT FLOW TEST
+========================================================
+
+1. Open RabbitMQ dashboard: http://localhost:15672 (guest/guest)
+2. Go to Queues tab -> see notification.queue
+
+3. Book a session:
+   POST /api/sessions/book (with LEARNER token)
+
+4. Check RabbitMQ:
+   - Messages should briefly appear in queue
+   - Then consumed by notification-service
+   - Messages Ready should go to 0
+
+5. Check notifications:
+   GET /api/notifications/my (with LEARNER token)
+   Expected: "Session Requested" notification present
+
+6. Check pgAdmin:
+   skillsync_notification DB -> notifications table
+   Expected: new rows inserted
+
+========================================================
+STEP 11 - VERIFY ALL SYSTEMS
+========================================================
+
+1. Eureka Dashboard:
+   http://localhost:8761
+   Check: All 8 services show UP
+
+2. Config Server:
+   http://localhost:8888/auth-service/default
+   Check: auth-service config loaded from GitHub
+
+3. RabbitMQ:
+   http://localhost:15672
+   Check: notification.queue exists, Messages Ready = 0
+
+4. Redis:
+   Connect with Redis CLI or RedisInsight
+   After login: GET token:pavan@gmail.com (should show JWT)
+
+5. pgAdmin:
+   Each database should have auto-created tables
+
+========================================================
+ROLE-BASED ACCESS SUMMARY
+========================================================
+
+ROLE_ADMIN:
+  POST   /api/mentors/skills        (create skill)
+  GET    /api/mentors/pending       (view pending applications)
+  PUT    /api/mentors/approve/{id}  (approve mentor)
+  PUT    /api/mentors/reject/{id}   (reject mentor)
+  GET    /api/users                 (all users)
+  GET    /api/sessions              (all sessions)
+  DELETE /api/groups/{id}           (delete group)
+  GET    /api/notifications/{email} (any user notifications)
+
+ROLE_MENTOR:
+  PUT    /api/mentors/availability  (update own availability)
+  PUT    /api/sessions/{id}/accept  (accept session)
+  PUT    /api/sessions/{id}/reject  (reject session)
+  PUT    /api/sessions/{id}/complete(complete session)
+
+ROLE_LEARNER:
+  POST   /api/sessions/book         (book session)
+  POST   /api/reviews               (submit review)
+
+ALL AUTHENTICATED:
+  POST   /api/mentors/apply         (apply as mentor)
+  POST   /api/users/profile         (create/update profile)
+  POST   /api/groups                (create group)
+  POST   /api/groups/{id}/join      (join group)
+  POST   /api/groups/{id}/leave     (leave group)
+  POST   /api/groups/{id}/messages  (send message)
+
+PUBLIC (no token):
+  POST   /api/auth/register
+  POST   /api/auth/login
+  GET    /api/mentors               (browse mentors)
+  GET    /api/mentors/search
+  GET    /api/mentors/filter
+  GET    /api/mentors/{id}
+  GET    /api/mentors/skills
+  GET    /api/reviews/mentor/{id}
+  GET    /api/reviews/mentor/{id}/average
+  GET    /api/groups
+  GET    /api/groups/{id}
+  GET    /api/groups/search
+
+========================================================
+PORT REFERENCE
+========================================================
+
+config-server         -> 8888
+eureka-server         -> 8761
+api-gateway           -> 8080  <- USE THIS FOR ALL REQUESTS
+auth-service          -> 8081
+user-service          -> 8082
+mentor-service        -> 8083
+session-service       -> 8084
+notification-service  -> 8085
+review-service        -> 8086
+group-service         -> 8087
+PostgreSQL            -> 5432
+RabbitMQ Management   -> 15672
+Redis                 -> 6379
+
+========================================================
+     PROJECT READY FOR CAPGEMINI EVALUATION!
+========================================================

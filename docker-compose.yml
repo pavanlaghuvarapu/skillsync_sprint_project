@@ -1,0 +1,248 @@
+services:
+
+  # ========================
+  # DATABASE
+  # ========================
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Pavan@123
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql   # 🔥 IMPORTANT FIX
+    networks:
+      - skillsync-network
+
+  # ========================
+  # REDIS
+  # ========================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - skillsync-network
+
+  # ========================
+  # RABBITMQ
+  # ========================
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - skillsync-network
+
+  # ========================
+  # ZIPKIN
+  # ========================
+  zipkin:
+    image: openzipkin/zipkin
+    container_name: zipkin
+    restart: always
+    ports:
+      - "9411:9411"
+    networks:
+      - skillsync-network
+
+  # ========================
+  # CONFIG SERVER
+  # ========================
+  config-server:
+    build: ./config-server
+    container_name: config-server
+    restart: always
+    ports:
+      - "8888:8888"
+    environment:
+      - GIT_USERNAME=pavanlaghuvarapu
+      - GIT_TOKEN=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   # 🔐 replace token
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - skillsync-network
+
+  # ========================
+  # EUREKA SERVER
+  # ========================
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    restart: always
+    ports:
+      - "8761:8761"
+    depends_on:
+      config-server:
+        condition: service_healthy
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888/
+    networks:
+      - skillsync-network
+
+  # ========================
+  # API GATEWAY
+  # ========================
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eureka-server
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - skillsync-network
+
+  # ========================
+  # AUTH SERVICE
+  # ========================
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    restart: always
+    ports:
+      - "8081:8081"
+    depends_on:
+      - eureka-server
+      - postgres
+      - redis
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - skillsync-network
+
+  # ========================
+  # USER SERVICE
+  # ========================
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    restart: always
+    ports:
+      - "8082:8082"
+    depends_on:
+      - eureka-server
+      - postgres
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - skillsync-network
+
+  # ========================
+  # MENTOR SERVICE
+  # ========================
+  mentor-service:
+    build: ./mentor-service
+    container_name: mentor-service
+    restart: always
+    ports:
+      - "8083:8083"
+    depends_on:
+      - eureka-server
+      - postgres
+      - redis
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - skillsync-network
+
+  # ========================
+  # SESSION SERVICE
+  # ========================
+  session-service:
+    build: ./session-service
+    container_name: session-service
+    restart: always
+    ports:
+      - "8084:8084"
+    depends_on:
+      - eureka-server
+      - postgres
+      - rabbitmq
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - skillsync-network
+
+  # ========================
+  # NOTIFICATION SERVICE
+  # ========================
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    restart: always
+    ports:
+      - "8085:8085"
+    depends_on:
+      - eureka-server
+      - rabbitmq
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - skillsync-network
+
+  # ========================
+  # REVIEW SERVICE
+  # ========================
+  review-service:
+    build: ./review-service
+    container_name: review-service
+    restart: always
+    ports:
+      - "8086:8086"
+    depends_on:
+      - eureka-server
+      - postgres
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - skillsync-network
+
+  # ========================
+  # GROUP SERVICE
+  # ========================
+  group-service:
+    build: ./group-service
+    container_name: group-service
+    restart: always
+    ports:
+      - "8087:8087"
+    depends_on:
+      - eureka-server
+      - postgres
+    environment:
+      - SPRING_CONFIG_IMPORT=configserver:http://config-server:8888
+      - SPRING_ZIPKIN_BASE_URL=http://zipkin:9411
+    networks:
+      - skillsync-network
+
+
+networks:
+  skillsync-network:
+    driver: bridge
+
+volumes:
+  uploads_data:

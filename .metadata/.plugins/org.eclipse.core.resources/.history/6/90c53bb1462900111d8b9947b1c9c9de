@@ -1,0 +1,4 @@
+server.port=8086
+spring.application.name=review-service
+#spring.config.import=configserver:http://localhost:8888
+spring.config.import=configserver:http://config-server:8888

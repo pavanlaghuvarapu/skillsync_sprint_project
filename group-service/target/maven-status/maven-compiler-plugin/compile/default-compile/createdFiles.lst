@@ -1,0 +1,15 @@
+com\skillsync\groupservice\config\SwaggerConfig.class
+com\skillsync\groupservice\dto\GroupDtos.class
+com\skillsync\groupservice\GroupServiceApplication.class
+com\skillsync\groupservice\service\GroupService.class
+com\skillsync\groupservice\controller\GroupController.class
+com\skillsync\groupservice\repository\LearningGroupRepository.class
+com\skillsync\groupservice\security\JwtAuthFilter.class
+com\skillsync\groupservice\config\ModelMapperConfig.class
+com\skillsync\groupservice\entity\GroupMessage.class
+com\skillsync\groupservice\dto\GroupDtos$GroupRequest.class
+com\skillsync\groupservice\repository\GroupMessageRepository.class
+com\skillsync\groupservice\config\SecurityConfig.class
+com\skillsync\groupservice\exception\GlobalExceptionHandler.class
+com\skillsync\groupservice\dto\GroupDtos$MessageRequest.class
+com\skillsync\groupservice\entity\LearningGroup.class
